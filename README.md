@@ -1,8 +1,11 @@
 # Trabalho Prático --- Inteligência Artificial (FACOM/UFMS, 2026/1)
 
 **Aluno:** _Diego Rodrigues de Souza Arimura_
+
 **Matrícula:** 202601525
+
 **Nível:** _Mestrado_
+
 **Tema da coleção:** _Ex.: Detecção de fraudes em transações financeiras com deep learning_
 
 ## Estrutura do repositório
