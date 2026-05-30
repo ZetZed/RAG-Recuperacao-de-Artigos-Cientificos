@@ -1,8 +1,8 @@
 # Virtual environment
 .venv/
 
-# Local cache and raw/processed data files (contains large jsonl and npy files)
-data/
+# Local cache and raw/processed data files (tracked since they are small, <5MB each)
+# data/
 
 # Generated TREC runs (outputs of retrieval models)
 notebooks/runs/
