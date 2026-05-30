@@ -1,0 +1,20 @@
+# Virtual environment
+.venv/
+
+# Local cache and raw/processed data files (contains large jsonl and npy files)
+data/
+
+# Generated TREC runs (outputs of retrieval models)
+notebooks/runs/
+
+# Development notes (contains summaries, commands, qualitative analyses)
+notes/
+
+# Python cache files
+__pycache__/
+**/__pycache__/
+*.pyc
+
+# Local OS files
+.DS_Store
+Thumbs.db

@@ -1,0 +1,843 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Buscador de Artigos Científicos - RAG (FACOM/UFMS 2026/1)</title>
+    <!-- Google Fonts: Inter & Outfit -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --bg-color: #0b0f19;
+            --card-bg: rgba(17, 24, 39, 0.7);
+            --card-border: rgba(255, 255, 255, 0.08);
+            --text-main: #f3f4f6;
+            --text-muted: #9ca3af;
+            
+            --bm25-color: #f59e0b; /* Amber */
+            --bm25-bg: rgba(245, 158, 11, 0.1);
+            
+            --knn-color: #10b981; /* Emerald */
+            --knn-bg: rgba(16, 185, 129, 0.1);
+            
+            --hybrid-color: #8b5cf6; /* Violet */
+            --hybrid-bg: rgba(139, 92, 246, 0.1);
+            
+            --input-bg: rgba(31, 41, 55, 0.5);
+            --transition-speed: 0.25s;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-color);
+            background-image: 
+                radial-gradient(at 10% 20%, rgba(139, 92, 246, 0.15) 0px, transparent 50%),
+                radial-gradient(at 90% 80%, rgba(16, 185, 129, 0.12) 0px, transparent 50%);
+            background-attachment: fixed;
+            color: var(--text-main);
+            min-height: 100vh;
+            padding: 2rem;
+            line-height: 1.5;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 3rem;
+            animation: fadeInDown 0.6s ease-out;
+        }
+
+        header h1 {
+            font-family: 'Outfit', sans-serif;
+            font-size: 2.5rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, #a78bfa 0%, #34d399 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 0.5rem;
+            letter-spacing: -0.025em;
+        }
+
+        header p {
+            color: var(--text-muted);
+            font-size: 1.1rem;
+            font-weight: 400;
+        }
+
+        .badge-posgrad {
+            display: inline-block;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.8rem;
+            font-weight: 500;
+            margin-top: 0.75rem;
+            color: #a78bfa;
+        }
+
+        /* Search Section */
+        .search-area {
+            background: rgba(17, 24, 39, 0.4);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--card-border);
+            padding: 2rem;
+            border-radius: 16px;
+            margin-bottom: 3rem;
+            box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
+            animation: fadeInUp 0.6s ease-out;
+        }
+
+        .search-form {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .input-group {
+            flex: 1;
+            min-width: 300px;
+            position: relative;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 1rem 1.5rem;
+            background: var(--input-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 8px;
+            color: var(--text-main);
+            font-size: 1.1rem;
+            font-family: inherit;
+            transition: all var(--transition-speed) ease;
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: #8b5cf6;
+            box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.25);
+            background: rgba(31, 41, 55, 0.75);
+        }
+
+        .k-select-group {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .k-select-group label {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            white-space: nowrap;
+        }
+
+        .k-select {
+            padding: 1rem;
+            background: var(--input-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 8px;
+            color: var(--text-main);
+            font-size: 1.1rem;
+            font-family: inherit;
+            cursor: pointer;
+            transition: all var(--transition-speed) ease;
+        }
+
+        .k-select:focus {
+            outline: none;
+            border-color: #8b5cf6;
+        }
+
+        .btn-search {
+            padding: 1rem 2rem;
+            background: linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%);
+            border: none;
+            border-radius: 8px;
+            color: white;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all var(--transition-speed) ease;
+            box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
+        }
+
+        .btn-search:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(139, 92, 246, 0.4);
+            filter: brightness(1.1);
+        }
+
+        .btn-search:active {
+            transform: translateY(0);
+        }
+
+        /* Preset queries */
+        .presets {
+            margin-top: 1.25rem;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            align-items: center;
+        }
+
+        .presets span {
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            margin-right: 0.5rem;
+        }
+
+        .btn-preset {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            color: #d1d5db;
+            padding: 0.4rem 0.8rem;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all var(--transition-speed) ease;
+        }
+
+        .btn-preset:hover {
+            background: rgba(139, 92, 246, 0.15);
+            border-color: rgba(139, 92, 246, 0.4);
+            color: #a78bfa;
+            transform: translateY(-1px);
+        }
+
+        /* Results Columns Grid */
+        .results-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 2rem;
+            opacity: 0;
+            transform: translateY(20px);
+            transition: opacity 0.5s ease, transform 0.5s ease;
+        }
+
+        .results-grid.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        @media (max-width: 1024px) {
+            .results-grid {
+                grid-template-columns: 1fr;
+                gap: 2.5rem;
+            }
+        }
+
+        .column {
+            background: rgba(17, 24, 39, 0.35);
+            border: 1px solid var(--card-border);
+            border-radius: 16px;
+            padding: 1.5rem;
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .column-header {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        }
+
+        .column-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            box-shadow: 0 0 8px currentColor;
+        }
+
+        .column-title {
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.25rem;
+            font-weight: 700;
+        }
+
+        .column.bm25 .column-indicator { color: var(--bm25-color); }
+        .column.bm25 { border-top: 3px solid var(--bm25-color); }
+        
+        .column.knn .column-indicator { color: var(--knn-color); }
+        .column.knn { border-top: 3px solid var(--knn-color); }
+        
+        .column.hybrid .column-indicator { color: var(--hybrid-color); }
+        .column.hybrid { border-top: 3px solid var(--hybrid-color); }
+
+        /* Card Style */
+        .card-list {
+            display: flex;
+            flex-direction: column;
+            gap: 1.25rem;
+            flex: 1;
+        }
+
+        .doc-card {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 12px;
+            padding: 1.25rem;
+            position: relative;
+            transition: all var(--transition-speed) cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            overflow: hidden;
+        }
+
+        .doc-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 4px;
+            height: 100%;
+            background: currentColor;
+            opacity: 0.8;
+        }
+
+        .column.bm25 .doc-card { color: var(--bm25-color); }
+        .column.knn .doc-card { color: var(--knn-color); }
+        .column.hybrid .doc-card { color: var(--hybrid-color); }
+
+        .doc-card:hover {
+            transform: translateY(-4px) scale(1.01);
+            box-shadow: 0 8px 24px -6px rgba(0, 0, 0, 0.7);
+            border-color: rgba(255, 255, 255, 0.15);
+            background: rgba(26, 36, 56, 0.85);
+        }
+
+        .card-header-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 1rem;
+            color: var(--text-main);
+        }
+
+        .doc-rank {
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: var(--text-main);
+            width: 28px;
+            height: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            font-size: 0.85rem;
+            font-weight: 700;
+            flex-shrink: 0;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+        }
+
+        .doc-title {
+            font-size: 1rem;
+            font-weight: 600;
+            line-height: 1.4;
+            color: var(--text-main);
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .doc-meta {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
+        .doc-authors {
+            display: -webkit-box;
+            -webkit-line-clamp: 1;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            margin-bottom: 0.25rem;
+        }
+
+        .doc-tags-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: auto;
+            padding-top: 0.5rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.04);
+        }
+
+        .doc-score {
+            font-family: 'Outfit', sans-serif;
+            font-size: 0.85rem;
+            font-weight: 700;
+            padding: 0.15rem 0.5rem;
+            border-radius: 4px;
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            color: var(--text-main);
+        }
+
+        .doc-categories {
+            display: flex;
+            gap: 0.35rem;
+            flex-wrap: wrap;
+        }
+
+        .cat-tag {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            color: var(--text-muted);
+            padding: 0.15rem 0.4rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+
+        .doc-abstract-teaser {
+            font-size: 0.85rem;
+            color: #d1d5db;
+            line-height: 1.45;
+            display: -webkit-box;
+            -webkit-line-clamp: 3;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .btn-more {
+            background: none;
+            border: none;
+            color: #a78bfa;
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+            text-align: left;
+            padding: 0;
+            align-self: flex-start;
+            margin-top: -0.25rem;
+            transition: color var(--transition-speed) ease;
+        }
+
+        .btn-more:hover {
+            color: #c084fc;
+            text-decoration: underline;
+        }
+
+        /* Loading Spinner */
+        .loader-wrapper {
+            display: none;
+            text-align: center;
+            margin: 4rem 0;
+        }
+
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid rgba(255, 255, 255, 0.1);
+            border-top-color: #8b5cf6;
+            border-radius: 50%;
+            animation: spin 1s infinite linear;
+            display: inline-block;
+            margin-bottom: 1rem;
+        }
+
+        .loader-wrapper p {
+            color: var(--text-muted);
+            font-size: 1.1rem;
+        }
+
+        /* Abstract Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.75);
+            backdrop-filter: blur(6px);
+            -webkit-backdrop-filter: blur(6px);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+            padding: 1.5rem;
+            opacity: 0;
+            transition: opacity var(--transition-speed) ease;
+        }
+
+        .modal.visible {
+            display: flex;
+            opacity: 1;
+        }
+
+        .modal-content {
+            background: #111827;
+            border: 1px solid var(--card-border);
+            border-radius: 16px;
+            max-width: 700px;
+            width: 100%;
+            max-height: 85vh;
+            overflow-y: auto;
+            padding: 2rem;
+            position: relative;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.8);
+            transform: scale(0.95);
+            transition: transform var(--transition-speed) cubic-bezier(0.34, 1.56, 0.64, 1);
+            color: var(--text-main);
+        }
+
+        .modal.visible .modal-content {
+            transform: scale(1);
+        }
+
+        .modal-close {
+            position: absolute;
+            top: 1rem;
+            right: 1.25rem;
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            font-size: 1.75rem;
+            cursor: pointer;
+            transition: color var(--transition-speed) ease;
+        }
+
+        .modal-close:hover {
+            color: #ef4444;
+        }
+
+        .modal-title {
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.35rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+            padding-right: 2rem;
+            line-height: 1.4;
+        }
+
+        .modal-meta {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .modal-abstract {
+            font-size: 0.95rem;
+            line-height: 1.6;
+            color: #e5e7eb;
+            text-align: justify;
+        }
+
+        .modal-btn-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-top: 1.5rem;
+            background: #2563eb;
+            color: white;
+            padding: 0.6rem 1.2rem;
+            border-radius: 6px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 0.9rem;
+            transition: background var(--transition-speed) ease;
+        }
+
+        .modal-btn-link:hover {
+            background: #1d4ed8;
+        }
+
+        /* Animations */
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        @keyframes fadeInDown {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Empty state */
+        .empty-state {
+            text-align: center;
+            padding: 4rem;
+            background: rgba(17, 24, 39, 0.2);
+            border: 1px dashed var(--card-border);
+            border-radius: 16px;
+            margin-top: 1rem;
+        }
+
+        .empty-state p {
+            color: var(--text-muted);
+            font-size: 1.1rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Recuperação de Artigos Científicos</h1>
+            <p>Comparação de Recuperação de Informação (Lexical vs Semântica vs Híbrida)</p>
+            <div class="badge-posgrad">Trabalho Prático - IA (FACOM/UFMS, 2026/1)</div>
+        </header>
+
+        <section class="search-area">
+            <form id="search-form" class="search-form" onsubmit="handleSearch(event)">
+                <div class="input-group">
+                    <input 
+                        type="text" 
+                        id="query-input" 
+                        class="search-input" 
+                        placeholder="Digite termos de busca (ex: automated testing in flutter)..." 
+                        required
+                        autocomplete="off"
+                    >
+                </div>
+                <div class="k-select-group">
+                    <label for="k-select">K resultados:</label>
+                    <select id="k-select" class="k-select">
+                        <option value="3">3</option>
+                        <option value="5" selected>5</option>
+                        <option value="10">10</option>
+                        <option value="20">20</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn-search">Buscar</button>
+            </form>
+
+            <div class="presets">
+                <span>Sugestões:</span>
+                <button class="btn-preset" onclick="fillAndSearch('automated testing in flutter')">automated testing in flutter</button>
+                <button class="btn-preset" onclick="fillAndSearch('code quality in react native')">code quality in react native</button>
+                <button class="btn-preset" onclick="fillAndSearch('static analysis tools android ios')">static analysis tools android ios</button>
+                <button class="btn-preset" onclick="fillAndSearch('automated test generation mobile apps')">automated test generation mobile apps</button>
+            </div>
+        </section>
+
+        <!-- Loader -->
+        <div class="loader-wrapper" id="loader">
+            <div class="spinner"></div>
+            <p>Buscando na base de 2.699 artigos... Carregando embeddings...</p>
+        </div>
+
+        <!-- Initial/Empty state -->
+        <div class="empty-state" id="initial-state">
+            <p>Insira uma consulta ou clique em uma das sugestões acima para visualizar os rankings dos recuperadores side-by-side.</p>
+        </div>
+
+        <!-- Results Grid -->
+        <div class="results-grid" id="results-container">
+            <!-- BM25 Column -->
+            <div class="column bm25">
+                <div class="column-header">
+                    <div class="column-indicator"></div>
+                    <div class="column-title">BM25 (Léxico Esparso)</div>
+                </div>
+                <div class="card-list" id="bm25-list">
+                    <!-- Cards dinâmicos -->
+                </div>
+            </div>
+
+            <!-- KNN Column -->
+            <div class="column knn">
+                <div class="column-header">
+                    <div class="column-indicator"></div>
+                    <div class="column-title">KNN (Semântico Denso)</div>
+                </div>
+                <div class="card-list" id="knn-list">
+                    <!-- Cards dinâmicos -->
+                </div>
+            </div>
+
+            <!-- Hybrid Column -->
+            <div class="column hybrid">
+                <div class="column-header">
+                    <div class="column-indicator"></div>
+                    <div class="column-title">Híbrido (RRF - Reciprocal Rank Fusion)</div>
+                </div>
+                <div class="card-list" id="hybrid-list">
+                    <!-- Cards dinâmicos -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal para Detalhes -->
+    <div class="modal" id="details-modal" onclick="closeModalOnOutsideClick(event)">
+        <div class="modal-content">
+            <button class="modal-close" onclick="closeModal()">&times;</button>
+            <div class="modal-title" id="modal-title">Título do Artigo</div>
+            <div class="modal-meta">
+                <div id="modal-authors">Autores: ...</div>
+                <div id="modal-categories">Categorias: ...</div>
+                <div id="modal-score">Pontuação do Modelo: ...</div>
+            </div>
+            <div class="modal-abstract" id="modal-abstract">
+                Resumo completo aqui...
+            </div>
+            <a href="#" target="_blank" class="modal-btn-link" id="modal-url">
+                Abrir no arXiv
+            </a>
+        </div>
+    </div>
+
+    <script>
+        // Guarda todos os artigos encontrados para exibição no modal
+        let searchCache = {};
+
+        function fillAndSearch(text) {
+            document.getElementById('query-input').value = text;
+            handleSearch(null);
+        }
+
+        async function handleSearch(event) {
+            if (event) event.preventDefault();
+            
+            const query = document.getElementById('query-input').value.trim();
+            const k = document.getElementById('k-select').value;
+            
+            if (!query) return;
+
+            // Interface States
+            document.getElementById('initial-state').style.display = 'none';
+            document.getElementById('results-container').classList.remove('visible');
+            document.getElementById('loader').style.display = 'block';
+
+            try {
+                const response = await fetch(`/api/search?query=${encodeURIComponent(query)}&k=${k}`);
+                if (!response.ok) {
+                    throw new Error('Erro na requisição');
+                }
+                const data = await response.json();
+                
+                searchCache = {}; // Limpa cache de detalhes
+                renderColumn('bm25', data.bm25);
+                renderColumn('knn', data.knn);
+                renderColumn('hybrid', data.hybrid);
+                
+                // Exibe resultados
+                document.getElementById('loader').style.display = 'none';
+                document.getElementById('results-container').classList.add('visible');
+            } catch (err) {
+                console.error(err);
+                alert('Erro ao realizar a busca. Verifique se o backend gui.py está rodando.');
+                document.getElementById('loader').style.display = 'none';
+                document.getElementById('initial-state').style.display = 'block';
+            }
+        }
+
+        function renderColumn(type, docs) {
+            const container = document.getElementById(`${type}-list`);
+            container.innerHTML = '';
+            
+            if (!docs || docs.length === 0) {
+                container.innerHTML = '<div style="color: var(--text-muted); text-align: center; margin-top: 2rem;">Nenhum resultado encontrado.</div>';
+                return;
+            }
+
+            docs.forEach(doc => {
+                const cacheId = `${type}-${doc.rank}`;
+                searchCache[cacheId] = doc;
+                
+                const card = document.createElement('div');
+                card.className = 'doc-card';
+                
+                const authorList = doc.authors.slice(0, 2).join(', ') + (doc.authors.length > 2 ? ' et al.' : '');
+                const categoriesList = doc.categories.map(c => `<span class="cat-tag">${c}</span>`).join(' ');
+                
+                card.innerHTML = `
+                    <div class="card-header-row">
+                        <div class="doc-title">${doc.title}</div>
+                        <div class="doc-rank">${doc.rank}</div>
+                    </div>
+                    <div class="doc-meta">
+                        <div class="doc-authors"><strong>Autores:</strong> ${authorList}</div>
+                    </div>
+                    <div class="doc-abstract-teaser">${doc.abstract}</div>
+                    <button class="btn-more" onclick="openDocModal('${cacheId}')">Ver abstract completo</button>
+                    <div class="doc-tags-row">
+                        <div class="doc-categories">${categoriesList}</div>
+                        <div class="doc-score">Score: ${doc.score.toFixed(4)}</div>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        function openDocModal(cacheId) {
+            const doc = searchCache[cacheId];
+            if (!doc) return;
+
+            document.getElementById('modal-title').innerText = doc.title;
+            document.getElementById('modal-authors').innerHTML = `<strong>Autores:</strong> ${doc.authors.join(', ')}`;
+            document.getElementById('modal-categories').innerHTML = `<strong>Categorias:</strong> ${doc.categories.join(', ')}`;
+            document.getElementById('modal-score').innerHTML = `<strong>Pontuação no Ranking:</strong> ${doc.score.toFixed(6)} (Posição #${doc.rank})`;
+            document.getElementById('modal-abstract').innerText = doc.abstract;
+            
+            const urlBtn = document.getElementById('modal-url');
+            urlBtn.href = doc.url;
+            
+            const modal = document.getElementById('details-modal');
+            modal.classList.add('visible');
+        }
+
+        function closeModal() {
+            const modal = document.getElementById('details-modal');
+            modal.classList.remove('visible');
+        }
+
+        function closeModalOnOutsideClick(event) {
+            if (event.target === document.getElementById('details-modal')) {
+                closeModal();
+            }
+        }
+
+        // Close on ESC key
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') closeModal();
+        });
+    </script>
+</body>
+</html>
