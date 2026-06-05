@@ -8,24 +8,31 @@
 \usepackage{amsfonts}
 \usepackage{amssymb}
 
-\address{Faculdade de Computação (FACOM) -- Universidade Federal de Mato Grosso do Sul (UFMS)\\
-  Caixa Postal 549 -- 79.070-900 -- Campo Grande -- MS -- Brazil
-}
-
-\author{Diego Rodrigues de Souza Arimura\inst{1}}
+\setlength{\abovedisplayskip}{5pt}
+\setlength{\belowdisplayskip}{5pt}
+\setlength{\abovedisplayshortskip}{3pt}
+\setlength{\belowdisplayshortskip}{3pt}
 
 \title{Construindo o ``R'' do RAG: Um Sistema de Recuperação de Artigos Científicos sobre Engenharia de Software Cross-Platform}
+
+\author{Diego Rodrigues de Souza Arimura\inst{1} }
+
+\address{Faculdade de Computação (FACOM) 
+\\Fundação Universidade Federal de Mato Grosso do Sul (UFMS)\\
+  Campo Grande -- MS -- Brasil
+  \email{diego.arimura@ufms.br}
+}
 
 \begin{document} 
 
 \maketitle
 
 \begin{abstract}
-  Retrieval-Augmented Generation (RAG) has emerged as a cornerstone for building reliable question-answering systems over specific knowledge bases. In this context, the retrieval component (the ``R'') is responsible for selecting the most relevant documents to feed the generative model. This work designs, implements, and evaluates a document retriever on a scientific paper collection from ArXiv containing 2,687 documents related to cross-platform mobile software engineering (Flutter, React Native, Android, and iOS). We compare three retrieval strategies: a lexical sparse baseline (BM25), a dense semantic retriever (KNN using all-MiniLM-L6-v2 embeddings), and a hybrid retriever utilizing Reciprocal Rank Fusion (RRF). Evaluating these models over 15 targeted queries shows that the hybrid approach balances the strengths of both representations, achieving the best overall Recall@10 (0.5685) and Top Precision@10 (0.5333).
+  Retrieval-Augmented Generation (RAG) has emerged as a cornerstone for building reliable question-answering systems over specific knowledge bases. In this context, the retrieval component (the ``R'') is responsible for selecting the most relevant documents to feed the generative model. This work designs, implements, and evaluates a document retriever on a scientific paper collection from ArXiv containing 2,699 documents related to cross-platform mobile software engineering (Flutter, React Native, Android, and iOS). We compare three retrieval strategies: a lexical sparse baseline (BM25), a dense semantic retriever (KNN using all-MiniLM-L6-v2 embeddings), and a hybrid retriever utilizing Reciprocal Rank Fusion (RRF). Evaluating these models over 15 targeted queries shows that the hybrid approach balances the strengths of both representations, achieving the best overall Recall@10 (0.5685) and Top Precision@10 (0.5333).
 \end{abstract}
      
 \begin{resumo} 
-  A Geração Aumentada de Recuperação (RAG) consolidou-se como uma abordagem fundamental para construir sistemas confiáveis de perguntas e respostas sobre bases de conhecimento específicas. Nesse contexto, o componente de recuperação (o ``R'') é responsável por selecionar os documentos mais relevantes para alimentar o modelo gerador. Este trabalho projeta, implementa e avalia um recuperador de documentos sobre uma coleção de 2.687 artigos científicos extraídos do ArXiv relacionados à engenharia de software móvel cross-platform (Flutter, React Native, Android e iOS). Comparamos três estratégias: um baseline esparso léxico (BM25), um recuperador denso semântico (KNN usando embeddings all-MiniLM-L6-v2) e um recuperador híbrido utilizando Reciprocal Rank Fusion (RRF). A avaliação dos modelos sobre 15 queries direcionadas demonstra que a abordagem híbrida balanceia as forças de ambas as representações, obtendo a melhor cobertura Recall@10 (0.5685) e Precisão@10 de topo (0.5333).
+  A Geração Aumentada de Recuperação (RAG) consolidou-se como uma abordagem fundamental para construir sistemas confiáveis de perguntas e respostas sobre bases de conhecimento específicas. Nesse contexto, o componente de recuperação (o ``R'') é responsável por selecionar os documentos mais relevantes para alimentar o modelo gerador. Este trabalho projeta, implementa e avalia um recuperador de documentos sobre uma coleção de 2.699 artigos científicos extraídos do ArXiv relacionados à engenharia de software móvel cross-platform (Flutter, React Native, Android e iOS). Comparamos três estratégias: um baseline esparso léxico (BM25), um recuperador denso semântico (KNN usando embeddings all-MiniLM-L6-v2) e um recuperador híbrido utilizando Reciprocal Rank Fusion (RRF). A avaliação dos modelos sobre 15 queries direcionadas demonstra que a abordagem híbrida balanceia as forças de ambas as representações, obtendo a melhor cobertura Recall@10 (0.5685) e Precisão@10 de topo (0.5333).
 \end{resumo}
 
 \section{Introdução}
@@ -36,29 +43,15 @@ Em paralelo, a ascensão dos Grandes Modelos de Linguagem (LLMs - \textit{Large 
 
 Este trabalho aborda o desenvolvimento, a avaliação rigorosa e a análise conceitual de um sistema de recuperação de artigos científicos do ArXiv focado em Engenharia de Software Móvel Cross-Platform. Investigamos os limites e as forças de abordagens léxicas tradicionais baseadas em termos exatos (BM25 Okapi), técnicas de recuperação semântica densa baseadas em embeddings de aprendizado profundo (KNN com vetores densos de baixa dimensionalidade) e estratégias híbridas que fundem os dois paradigmas utilizando o algoritmo \textit{Reciprocal Rank Fusion} (RRF). 
 
-O trabalho está estruturado da seguinte forma: a Seção 2 revisa trabalhos relacionados na área de recuperação de informação léxica e semântica; a Seção 3 detalha a metodologia de coleta, pré-processamento e modelagem teórica e matemática de cada retriever; a Seção 4 descreve a avaliação experimental, o mecanismo de anotação (\textit{pooling}) e o detalhamento matemático e prático das métricas utilizadas; a Seção 5 expõe a análise comparativa quantitativa detalhada consulta por consulta e a discussão qualitativa dos resultados; a Seção 6 mapeia as conexões conceituais deste projeto prático com a teoria da disciplina de Inteligência Artificial; e a Seção 7 conclui o trabalho sinalizando direções futuras.
-
 \section{Trabalhos Relacionados}
 
 A evolução dos sistemas de Recuperação de Informação (IR - \textit{Information Retrieval}) é tradicionalmente dividida entre abordagens baseadas em correspondência de termos (léxicas esparsas) e abordagens baseadas em significado conceitual (semânticas densas).
 
-\subsection{Recuperação Léxica Esparsa}
+\noindent\textbf{Recuperação Léxica Esparsa:} A indexação léxica esparsa é historicamente liderada pela clássica representação vetorial TF-IDF (Frequência do Termo - Frequência Inversa do Documento) descrita por Manning et al. (2008), e consolidada pelo modelo estatístico BM25 Okapi proposto por Robertson e Zaragoza (2009). Esses modelos focam na correspondência exata de palavras-chave, tratando o texto como um saco de palavras (\textit{bag-of-words}). Embora o BM25 seja computacionalmente eficiente e possua alta precisão para palavras-chave muito específicas e raras (como códigos de erro ou nomes de frameworks), ele sofre com o problema da incompatibilidade de vocabulário (\textit{vocabulary mismatch}). Se um usuário realiza uma consulta utilizando o termo ``testes de interface'' e um artigo científico relevante utiliza o termo ``widget testing'' ou ``UI evaluation'', o BM25 não computará similaridade devido à falta de correspondência exata dos caracteres, gerando lacunas de busca.
 
-A indexação léxica esparsa é historicamente liderada pela clássica representação vetorial TF-IDF (Frequência do Termo - Frequência Inversa do Documento) descrita por Manning et al. (2008), e consolidada pelo modelo estatístico BM25 Okapi proposto por Robertson e Zaragoza (2009). Esses modelos focam na correspondência exata de palavras-chave, tratando o texto como um saco de palavras (\textit{bag-of-words}). 
+\noindent\textbf{Recuperação Semântica Densa:} Com os avanços em redes neurais profundas de processamento de linguagem natural (PLN), modelos como o \textit{Dense Passage Retrieval} (DPR) proposto por Karpukhin et al. (2020) demonstraram a eficácia de codificar consultas e passagens em espaços vetoriais contínuos de tamanho fixo. Em vez de representar textos em vetores esparsos do tamanho do vocabulário total da coleção, esses modelos utilizam arquiteturas baseadas em Transformers (como BERT) para mapear o texto para vetores densos (normalmente entre 384 e 768 dimensões). Adicionalmente, Reimers e Gurevych (2019) propuseram a arquitetura Sentence-BERT (SBERT), utilizando redes siamesas para treinar o modelo especificamente na geração de embeddings de sentenças e parágrafos semanticamente coerentes, em que a distância cosseno reflete a proximidade de significado conceitual. No domínio científico, Cohan et al. (2020) apresentaram o SPECTER, um codificador treinado por meio de relações de citação entre artigos científicos, provando que embeddings focados no jargão acadêmico superam consideravelmente os codificadores genéricos.
 
-Embora o BM25 seja computacionalmente eficiente e possua alta precisão para palavras-chave muito específicas e raras (como códigos de erro ou nomes de frameworks), ele sofre com o problema da incompatibilidade de vocabulário (\textit{vocabulary mismatch}). Se um usuário realiza uma consulta utilizando o termo ``testes de interface'' e um artigo científico relevante utiliza o termo ``widget testing'' ou ``UI evaluation'', o BM25 não computará similaridade devido à falta de correspondência exata dos caracteres, gerando lacunas de busca.
-
-\subsection{Recuperação Semântica Densa}
-
-Com os avanços em redes neurais profundas de processamento de linguagem natural (PLN), modelos como o \textit{Dense Passage Retrieval} (DPR) proposto por Karpukhin et al. (2020) demonstraram a eficácia de codificar consultas e passagens em espaços vetoriais contínuos de tamanho fixo. Em vez de representar textos em vetores esparsos do tamanho do vocabulário total da coleção, esses modelos utilizam arquiteturas baseadas em Transformers (como BERT) para mapear o texto para vetores densos (normalmente entre 384 e 768 dimensões).
-
-Adicionalmente, Reimers e Gurevych (2019) propuseram a arquitetura Sentence-BERT (SBERT), utilizando redes siamesas para treinar o modelo especificamente na geração de embeddings de sentenças e parágrafos semanticamente coerentes, em que a distância cosseno reflete a proximidade de significado conceitual. No domínio científico, Cohan et al. (2020) apresentaram o SPECTER, um codificador treinado por meio de relações de citação entre artigos científicos, provando que embeddings focados no jargão acadêmico superam consideravelmente os codificadores genéricos.
-
-\subsection{Abordagens Híbridas e Fusão de Ranks}
-
-Mais recentemente, a literatura de IR convergiu para sistemas de busca híbridos para contornar as deficiências de cada representação isolada. Conforme discutido por Luan et al. (2021), os modelos esparsos garantem a presença de termos técnicos exatos, enquanto os modelos densos capturam a intenção do usuário e sinônimos contextuais.
-
-Para combinar essas saídas sem a necessidade de calibrar pesos de pontuações de naturezas distintas (já que a escala do BM25 é ilimitada e a similaridade de cosseno varia entre -1 e 1), Cormack et al. (2009) introduziram o algoritmo \textit{Reciprocal Rank Fusion} (RRF). O RRF provou ser um método de fusão sem parâmetros altamente robusto e estável, superando abordagens estatísticas de normalização padrão de scores. Por essa razão, a fusão baseada em RRF foi adotada como módulo de aprofundamento e avaliação neste trabalho.
+\noindent\textbf{Abordagens Híbridas e Fusão de Ranks:} Mais recentemente, a literatura de IR convergiu para sistemas de busca híbridos para contornar as deficiências de cada representação isolada. Conforme discutido por Luan et al. (2021), os modelos esparsos garantem a presença de termos técnicos exatos, enquanto os modelos densos capturam a intenção do usuário e sinônimos contextuais. Para combinar essas saídas sem a necessidade de calibrar pesos de pontuações de naturezas distintas (já que a escala do BM25 é ilimitada e a similaridade de cosseno varia entre -1 e 1), Cormack et al. (2009) introduziram o algoritmo \textit{Reciprocal Rank Fusion} (RRF). O RRF provou ser um método de fusão sem parâmetros altamente robusto e estável, superando abordagens estatísticas de normalização padrão de scores. Por essa razão, a fusão baseada em RRF foi adotada como módulo de aprofundamento e avaliação neste trabalho.
 
 \section{Metodologia}
 
@@ -72,33 +65,22 @@ A construção de um sistema de recuperação de artigos acadêmicos serve como 
 
 \subsection{Coleta e Construção do Corpus}
 
-A coleção de artigos científicos foi extraída programaticamente por meio da API do ArXiv, utilizando uma estratégia de busca direcionada para Engenharia de Software Móvel. Filtramos as submissões dentro das seguintes taxonomias de categorias de Ciência da Computação:
-\begin{itemize}
-    \item \texttt{cs.SE} (Software Engineering) - Categoria principal para qualidade de código, arquitetura, manutenção e testes.
-    \item \texttt{cs.HC} (Human-Computer Interaction) - Aspectos de usabilidade e interface do usuário móvel.
-    \item \texttt{cs.PL} (Programming Languages) - Abordagens focadas em compiladores e paradigmas de linguagens associadas (Dart, JavaScript).
-    \item \texttt{cs.CY} (Computers and Society) - Estudos de adoção tecnológica e impacto social.
-    \item \texttt{cs.CR} (Cryptography and Security) - Vulnerabilidades de segurança e privacidade em frameworks móveis.
-\end{itemize}
+A coleção de artigos científicos foi extraída programaticamente por meio da API do ArXiv, utilizando uma estratégia de busca direcionada para Engenharia de Software Móvel. Filtramos as submissões dentro das seguintes taxonomias de categorias de Ciência da Computação: \texttt{cs.SE} (Software Engineering - qualidade, arquitetura e testes), \texttt{cs.HC} (Human-Computer Interaction - usabilidade), \texttt{cs.PL} (Programming Languages - paradigmas de linguagens), \texttt{cs.CY} (Computers and Society - adoção e impacto) e \texttt{cs.CR} (Cryptography and Security - segurança).
 
-O critério de coleta aplicou a seguinte query lógica unificada para os campos de título e abstract:
+O critério de coleta aplicou a seguinte query lógica unificada para os campos de título e abstract (ajustada para não exceder as margens da página):
 \begin{verbatim}
-(all:"flutter" OR all:"react native" OR all:"cross-platform" 
- OR all:"mobile app" OR all:"mobile application" OR all:"mobile development" 
- OR all:"mobile software" OR all:"dart programming" OR all:"android" 
- OR all:"ios") AND (cat:cs.SE OR cat:cs.HC OR cat:cs.PL OR cat:cs.CY OR cat:cs.CR)
+(all:"flutter" OR all:"react native" OR all:"cross-platform" OR
+ all:"mobile app" OR all:"mobile application" OR
+ all:"mobile development" OR all:"mobile software" OR
+ all:"dart programming" OR all:"android" OR all:"ios")
+AND (cat:cs.SE OR cat:cs.HC OR cat:cs.PL OR cat:cs.CY OR cat:cs.CR)
 \end{verbatim}
 
-A janela temporal foi delimitada de 2015 a 2026. A coleta paginada da API do ArXiv com tratamento de erros HTTP 429 e 503 e \textit{backoff} exponencial resultou na coleta de 2.687 artigos. Após a remoção de duplicatas por \texttt{arxiv\_id} e registros com abstracts vazios ou muito curtos, a base limpa de documentos foi consolidada no formato JSON Lines em \texttt{data/corpus.jsonl}, contendo exatamente 2.687 artigos científicos.
+A janela temporal foi delimitada de 2015 a 2026. A coleta paginada da API do ArXiv com tratamento de erros HTTP 429 e 503 e \textit{backoff} exponencial resultou na coleta de 2.699 artigos. Após a remoção de duplicatas por \texttt{arxiv\_id} e registros com abstracts vazios ou muito curtos, a base limpa de documentos foi consolidada no formato JSON Lines em \texttt{data/corpus.jsonl}, contendo exatamente 2.699 artigos científicos.
 
 \subsection{Pré-processamento Textual}
 
-Para cada documento, o texto indexável foi gerado pela concatenação de título e abstract. O pipeline de pré-processamento executado em `src/preprocessing.py` seguiu as seguintes etapas:
-\begin{enumerate}
-    \item \textbf{Normalização}: Conversão de todo o texto para caracteres minúsculos.
-    \item \textbf{Tokenização}: Filtragem usando a expressão regular \texttt{r"\textbackslash b[a-zA-Z][a-zA-Z\textbackslash-]{1,}\textbackslash b"} para capturar palavras válidas com mais de dois caracteres, preservando termos hifenizados (como ``cross-platform'' ou ``ci-cd'') cruciais na nossa área.
-    \item \textbf{Remoção de Stopwords}: Eliminação de palavras vazias funcionais do idioma inglês usando o dicionário padrão da biblioteca NLTK (Bird et al., 2009).
-\end{enumerate}
+Para cada documento, o texto indexável foi gerado pela concatenação de título e abstract. O pipeline de pré-processamento executado em `src/preprocessing.py` realiza sequencialmente: (1) \textbf{Normalização} (conversão para minúsculas); (2) \textbf{Tokenização} (uso da expressão regular \texttt{r"\textbackslash b[a-zA-Z][a-zA-Z\textbackslash-]{1,}\textbackslash b"} para preservar termos com hífen, como ``cross-platform'' ou ``ci-cd''); e (3) \textbf{Remoção de Stopwords} (eliminação de palavras vazias em inglês com a biblioteca NLTK, descrita por Bird et al. 2009).
 
 Para fins didáticos, a Tabela~\ref{tab:preprocessing_flow} ilustra a evolução de uma sentença típica de entrada através do pipeline de pré-processamento.
 
@@ -134,7 +116,7 @@ onde $N$ é o número total de documentos no corpus e $n(q_i)$ é o número de d
 
 Para superar as barreiras de vocabulário, o recuperador semântico denso codifica as sentenças em vetores de números reais. Adotamos o modelo de rede neural pré-treinado \texttt{all-MiniLM-L6-v2} do framework SentenceTransformers. Este modelo mapeia o texto de título + resumo para um espaço densamente povoado de $d = 384$ dimensões.
 
-Cada documento $D_j$ é representado por um vetor normalizado $\mathbf{v}_{d_j} \in \mathbb{R}^{384}$ tal que $||\mathbf{v}_{d_j}||_2 = 1$. Os embeddings de todos os 2.687 documentos são pré-computados e salvos localmente em um arquivo binário do NumPy (\texttt{doc\_embeddings\_all-MiniLM-L6-v2.npy}), permitindo carregamento rápido.
+Cada documento $D_j$ é representado por um vetor normalizado $\mathbf{v}_{d_j} \in \mathbb{R}^{384}$ tal que $||\mathbf{v}_{d_j}||_2 = 1$. Os embeddings de todos os 2.699 documentos são pré-computados e salvos localmente em um arquivo binário do NumPy (\texttt{doc\_embeddings\_all-MiniLM-L6-v2.npy}), permitindo carregamento rápido.
 
 No momento da busca, a query $Q$ é processada pela mesma rede neural, gerando o vetor da query normalizado $\mathbf{v}_q \in \mathbb{R}^{384}$. O cálculo da similaridade semântica para cada documento é computado via produto interno (similaridade de cosseno):
 \begin{equation}
@@ -185,87 +167,40 @@ q15 & dart compilation and compile-time optimization in flutter \\ \bottomrule
 
 \subsection{Pooling e Relevance Judgments (qrels)}
 
-Para viabilizar o cálculo das métricas de recuperação sem precisar avaliar manualmente todos os 2.687 documentos para cada uma das 15 queries (um esforço inviável de $15 \times 2.687 = 40.305$ anotações), aplicamos a técnica tradicional de \textit{pooling}. Para cada query, coletamos os 10 primeiros documentos retornados pelo BM25, KNN e Híbrido, unimos estes resultados e removemos duplicatas.
-
-Isso gerou um conjunto consolidado de \textbf{276 pares documento-query únicos} para avaliação manual. Cada par foi anotado semanticamente por meio de um script de anotação lógica restrita combinada a termos chaves (\texttt{src/annotate\_qrels.py}), aplicando as seguintes diretrizes de classificação graduada de três níveis:
-\begin{itemize}
-    \item \textbf{Relevância 2 (Altamente relevante)}: O artigo aborda diretamente o tema específico da consulta (ex: ferramentas ou propostas explícitas de testes em Flutter para a query \texttt{q1}).
-    \item \textbf{Relevância 1 (Relevante)}: O artigo está no domínio da consulta de forma genérica (ex: testes gerais de aplicativos Android/iOS sem foco específico em Flutter).
-    \item \textbf{Relevância 0 (Não-relevante)}: O artigo não atende aos requisitos temáticos da consulta.
-\end{itemize}
-O gabarito final foi persistido no arquivo \texttt{eval/qrels.tsv}.
+Para viabilizar o cálculo das métricas de recuperação sem precisar avaliar manualmente todos os 2.699 documentos para cada uma das 15 queries (um esforço inviável de $15 \times 2.699 = 40.485$ anotações), aplicamos a técnica tradicional de \textit{pooling}. Para cada query, coletamos os 10 primeiros documentos retornados pelo BM25, KNN e Híbrido, unimos estes resultados e removemos duplicatas. Isso gerou um conjunto de \textbf{276 pares documento-query únicos} para avaliação manual. Cada par foi anotado no gabarito \texttt{eval/qrels.tsv} com o script \texttt{src/annotate\_qrels.py}, aplicando as seguintes diretrizes graduadas de relevância: \textbf{Relevância 2} (Altamente relevante, abordando diretamente o tema da consulta, como propostas de testes Flutter para \texttt{q1}); \textbf{Relevância 1} (Relevante de forma geral, abordando o domínio amplo sem focar na tecnologia exata); e \textbf{Relevância 0} (Não-relevante para o escopo da query). O gabarito final foi persistido no arquivo \texttt{eval/qrels.tsv}.
 
 \subsection{Métricas de Avaliação}
 
 Avaliamos as runs geradas com $k = 10$ utilizando o script \texttt{eval/evaluate.py}. As métricas calculadas foram:
-\begin{itemize}
-    \item \textbf{Precisão@k (P@k)}: Proporção de documentos relevantes no topo $k$:
-    \begin{equation}
-        P@k = \frac{\sum_{i=1}^{k} \mathbb{I}(\text{relevância}(d_i) > 0)}{k}
-    \end{equation}
-    \item \textbf{Recall@k (R@k)}: Proporção de documentos relevantes recuperados no topo $k$ em relação ao total de relevantes conhecidos na tabela \texttt{qrels} ($R_{total}$):
-    \begin{equation}
-        R@k = \frac{\sum_{i=1}^{k} \mathbb{I}(\text{relevância}(d_i) > 0)}{R_{total}}
-    \end{equation}
-    \item \textbf{Average Precision (AP)}: Média das precisões calculadas nos pontos onde um documento relevante foi retornado:
-    \begin{equation}
-        AP = \frac{1}{R_{total}} \sum_{i=1}^{\text{len}(run)} P@i \cdot \mathbb{I}(\text{relevância}(d_i) > 0)
-    \end{equation}
-    O MAP (\textit{Mean Average Precision}) é a média aritmética das APs calculadas sobre todas as 15 queries de teste.
-    \item \textbf{Normalized Discounted Cumulative Gain (nDCG@k)}: Medida de ganho acumulado que penaliza documentos relevantes posicionados tardiamente no rank, normalizado pelo ganho ideal acumulado (IDCG):
-    \begin{equation}
-        \text{DCG}@k = \sum_{i=1}^{k} \frac{\text{relevância}(d_i)}{\log_2(i + 1)}, \quad \text{nDCG}@k = \frac{\text{DCG}@k}{\text{IDCG}@k}
-    \end{equation}
-\end{itemize}
 
-\subsection{Exemplo Didático de Cálculo das Métricas}
+\noindent\textbf{Precisão@k (P@k):} Proporção de documentos relevantes no topo $k$:
+\begin{equation}
+    P@k = \frac{\sum_{i=1}^{k} \mathbb{I}(\text{relevância}(d_i) > 0)}{k}
+\end{equation}
 
-Para fins didáticos e esclarecimento de como as fórmulas operam, apresentamos um exemplo de cálculo manual das métricas para uma query hipotética. Considere uma consulta $Q_{ex}$ cujo gabarito no arquivo \texttt{qrels.tsv} possui exactly $R_{total} = 4$ documentos com relevância $> 0$ (ou seja, relevantes). A lista ordenada retornada por um recuperador é composta pelos seguintes 5 documentos ($k=5$):
-\begin{enumerate}
-    \item $D_A$ (Relevância em qrels = 2) $\rightarrow$ Relevante
-    \item $D_B$ (Relevância em qrels = 0) $\rightarrow$ Irrelevante
-    \item $D_C$ (Relevância em qrels = 1) $\rightarrow$ Relevante
-    \item $D_D$ (Relevância em qrels = 0) $\rightarrow$ Irrelevante
-    \item $D_E$ (Relevância em qrels = 2) $\rightarrow$ Relevante
-\end{enumerate}
+\noindent\textbf{Recall@k (R@k):} Proporção de documentos relevantes recuperados no topo $k$ em relação ao total de relevantes conhecidos na tabela \texttt{qrels} ($R_{total}$):
+\begin{equation}
+    R@k = \frac{\sum_{i=1}^{k} \mathbb{I}(\text{relevância}(d_i) > 0)}{R_{total}}
+\end{equation}
 
-Aplicando as equações, o cálculo das métricas de topo 5 procede de forma aritmética:
-\begin{itemize}
-    \item \textbf{Precisão@5}: O topo 5 possui 3 documentos relevantes ($D_A, D_C, D_E$). Logo:
-    \begin{equation*}
-        P@5 = \frac{3}{5} = 0.6000\ (60\%)
-    \end{equation*}
-    \item \textbf{Recall@5}: Dos 4 relevantes conhecidos no gabarito, recuperamos 3. Logo:
-    \begin{equation*}
-        R@5 = \frac{3}{4} = 0.7500\ (75\%)
-    \end{equation*}
-    \item \textbf{Average Precision (AP)}: Calculamos a precisão em cada ponto de recuperação de um documento relevante (ranks 1, 3 e 5):
-    \begin{itemize}
-        \item No rank 1 ($D_A$): $P@1 = \frac{1}{1} = 1.0000$
-        \item No rank 3 ($D_C$): $P@3 = \frac{2}{3} \approx 0.6667$
-        \item No rank 5 ($D_E$): $P@5 = \frac{3}{5} = 0.6000$
-    \end{itemize}
-    O AP é a soma destas precisões dividida pelo total de relevantes conhecidos ($R_{total} = 4$):
-    \begin{equation*}
-        AP = \frac{1.0000 + 0.6667 + 0.6000}{4} = \frac{2.2667}{4} \approx 0.5667
-    \end{equation*}
-    \item \textbf{nDCG@5}: Primeiro, calcula-se o DCG@5 obtido da lista (usando os valores de relevância graduados $[2, 0, 1, 0, 2]$):
-    \begin{equation*}
-        DCG@5 = \frac{2}{\log_2(2)} + \frac{0}{\log_2(3)} + \frac{1}{\log_2(4)} + \frac{0}{\log_2(5)} + \frac{2}{\log_2(6)}
-    \end{equation*}
-    Substituindo os valores logarítmicos $\log_2(2) = 1$, $\log_2(4) = 2$ e $\log_2(6) \approx 2.5850$:
-    \begin{equation*}
-        DCG@5 = \frac{2}{1} + 0 + \frac{1}{2} + 0 + \frac{2}{2.5850} = 2 + 0.5 + 0.7737 = 3.2737
-    \end{equation*}
-    Para obter o IDCG@5, ordena-se os melhores valores possíveis de relevância do gabarito. Como os relevantes conhecidos possuem relevâncias graduadas $\{2, 2, 1, 0\}$, a melhor ordenação ideal de relevâncias no topo 5 é $[2, 2, 1, 0, 0]$:
-    \begin{equation*}
-        IDCG@5 = \frac{2}{\log_2(2)} + \frac{2}{\log_2(3)} + \frac{1}{\log_2(4)} + 0 + 0 = \frac{2}{1} + \frac{2}{1.5850} + \frac{1}{2} = 2 + 1.2618 + 0.5 = 3.7618
-    \end{equation*}
-    Normalizando o DCG pelo ganho ideal:
-    \begin{equation*}
-        nDCG@5 = \frac{3.2737}{3.7618} \approx 0.8702
-    \end{equation*}
-\end{itemize}
+\noindent\textbf{Average Precision (AP):} Média das precisões calculadas nos pontos onde um documento relevante foi retornado:
+\begin{equation}
+    AP = \frac{1}{R_{total}} \sum_{i=1}^{\text{len}(run)} P@i \cdot \mathbb{I}(\text{relevância}(d_i) > 0)
+\end{equation}
+O MAP (\textit{Mean Average Precision}) é a média aritmética das APs calculadas sobre todas as 15 queries de teste.
+
+\noindent\textbf{Normalized Discounted Cumulative Gain (nDCG@k):} Medida de ganho acumulado que penaliza documentos relevantes posicionados tardiamente no rank, normalizado pelo ganho ideal acumulado (IDCG):
+\begin{equation}
+    \text{DCG}@k = \sum_{i=1}^{k} \frac{\text{relevância}(d_i)}{\log_2(i + 1)}, \quad \text{nDCG}@k = \frac{\text{DCG}@k}{\text{IDCG}@k}
+\end{equation}
+
+Apresentamos um exemplo prático para uma query hipotética com $R_{total} = 4$ relevantes no gabarito, retornando a lista de 5 documentos ($k=5$) com relevâncias graduadas $[2, 0, 1, 0, 2]$ (onde relevância $> 0$ indica relevante). Logo, temos: 3 documentos relevantes no topo 5 ($D_1, D_3, D_5$).
+
+\noindent\textbf{Precisão@5 e Recall@5:} $P@5 = \frac{3}{5} = 0.6000$ ($60\%$) e $R@5 = \frac{3}{4} = 0.7500$ ($75\%$).
+
+\noindent\textbf{Average Precision (AP):} Calculamos as precisões nos ranks dos documentos relevantes (ranks 1, 3 e 5), obtendo $P@1 = \frac{1}{1} = 1.0$, $P@3 = \frac{2}{3} \approx 0.6667$ e $P@5 = \frac{3}{5} = 0.60$. A média das precisões sobre o total de relevantes conhecidos ($R_{total} = 4$) resulta em: $AP = \frac{1.0 + 0.6667 + 0.60}{4} \approx 0.5667$.
+
+\noindent\textbf{nDCG@5:} O ganho acumulado descontado obtido é $DCG@5 = \frac{2}{\log_2 2} + \frac{0}{\log_2 3} + \frac{1}{\log_2 4} + \frac{0}{\log_2 5} + \frac{2}{\log_2 6} = 2 + 0.5 + 0.7737 = 3.2737$. Ordenando as relevâncias graduadas do gabarito para obter o topo ideal ($[2, 2, 1, 0, 0]$), computamos $IDCG@5 = \frac{2}{\log_2 2} + \frac{2}{\log_2 3} + \frac{1}{\log_2 4} = 2 + 1.2618 + 0.5 = 3.7618$. A normalização resulta em: $nDCG@5 = \frac{3.2737}{3.7618} \approx 0.8702$.
 
 \section{Resultados e Discussão}
 
@@ -304,46 +239,27 @@ q15 & 0.1000 & 1.0000 & 1.0000 & 1.0000 & 0.0000 & 0.0000 & 0.0000 & 0.0000 & 0.
 \end{table*}
 
 A análise geral das médias na Tabela~\ref{tab:resultados_completos} indica que o sistema \textbf{Híbrido (RRF)} atinge a melhor cobertura geral, obtendo o maior Recall@10 médio (\textbf{0.5685}) e a melhor Precisão de topo (\textbf{P@10 = 0.5333}). A fusão baseada em classificação recíproca obteve sucesso ao balancear o melhor de dois mundos: os termos exatos de alta pontuação IDF do BM25 com as relações contextuais trazidas pela proximidade vetorial do KNN.
-
 Por sua vez, o \textbf{BM25} individual apresentou a maior pontuação de MAP geral (0.5448) e nDCG@10 (0.6100). Isso ocorre devido à natureza altamente técnica e de domínio específico das consultas de Engenharia de Software. Em termos práticos, consultas contendo palavras como ``linter'', ``smells'' ou ``pipelines'' retornam poucos resultados que coincidem no corpus. A correspondência de termos exatos atua como um filtro rigoroso, e quando os termos se alinham perfeitamente, o \textbf{BM25} posiciona o documento correto no rank 1, maximizando o ganho acumulado descontado.
 
 O modelo \textbf{KNN Denso}, isoladamente, obteve resultados discretamente menores em relação ao MAP (0.4126). Isso se deve a um efeito conhecido da representação em vetores de tamanho fixo de modelos pré-treinados em domínio amplo. O modelo de embeddings \texttt{all-MiniLM-L6-v2} ocasionalmente introduz falsos positivos conceituais, ou seja, documentos que discutem conceitos vagamente semelhantes (como nuvens ou conteinerização) mas sem relação direta com a consulta específica de desenvolvimento de apps móveis. Em contrapartida, o \textbf{KNN} é muito mais estável, nunca zerando o nDCG em consultas difíceis (como na query \texttt{q12}), onde o BM25 falhou totalmente.
 
-\subsection{Discussão Qualitativa e Casos de Análise}
+No \textbf{Caso 1} (Query \texttt{q5} --- \textit{``state management patterns in flutter applications''}), o BM25 e o KNN recuperaram no topo o artigo relevante ID \texttt{2407.19318} (ASM). No entanto, o BM25 inseriu no rank 3 o ruído léxico ID \texttt{2309.12365} (um sistema de estoque de armazém) devido à coincidência de termos comuns como ``management'' e ``system''. Em contraste, o KNN recuperou no rank 2 o artigo ID \texttt{2502.11708} (Docker Controller App em Flutter), mantendo maior proximidade semântica ao contexto de programação móvel.
 
-Analisamos detalhadamente a lista ordenada das queries \texttt{q5} e \texttt{q12} para mapear a diferença prática de funcionamento entre os sistemas.
-
-\begin{itemize}
-    \item \textbf{Caso 1: Query q5 (``state management patterns in flutter applications'')}:
-    \begin{itemize}
-        \item O BM25 e o KNN recuperaram em rank 1 o artigo relevante ID \texttt{2407.19318} (``Application State Management (ASM) in the Modern Web and Mobile Applications: A Comprehensive Review''), o qual aborda diretamente o tema específico de padrões de estado.
-        \item Contudo, no rank 3, o BM25 trouxe o falso positivo ID \texttt{2309.12365} (``An Efficient Intelligent Semi-Automated Warehouse Inventory Stocktaking System''). Trata-se de um ruído léxico gerado pela sobreposição exata de palavras comuns de alta frequência no texto, como ``management'' e ``system'', sem nenhuma relação com programação móvel.
-        \item O KNN recuperou no rank 2 o artigo ID \texttt{2502.11708} (``Design and Implementation of Flutter based Multi-platform Docker Controller App''). Embora o foco não seja apenas padrões de estado, o artigo é semanticamente correlato ao desenvolvimento em Flutter, mantendo maior utilidade e proximidade semântica ao usuário final em relação ao sistema de armazém trazido pelo BM25.
-    \end{itemize}
-
-    \item \textbf{Caso 2: Query q12 (``architectural patterns in dart and flutter projects'')}:
-    \begin{itemize}
-        \item O BM25 obteve P@10 e nDCG@10 iguais a 0.0000. Ele trouxe no topo artigos casuais de saúde para smartphone que continham as palavras ``architectural'' isoladamente no abstract, falhando na captura do contexto estrutural de software.
-        \item O KNN recuperou no rank 2 o artigo ID \texttt{1610.05711} (``Anti-patterns and the energy efficiency of Android applications''). Este é um caso de sucesso da representação de embeddings: mesmo que o resumo do artigo não contivesse a palavra literal ``architectural'', o modelo de representação semântica associou o conceito de ``architectural patterns'' com o conceito de ``anti-patterns'' e ``code smells'', demonstrando flexibilidade contra o problema de vocabulário e recuperando um artigo útil sobre padrões e qualidade de software.
-    \end{itemize}
-\end{itemize}
+No \textbf{Caso 2} (Query \texttt{q12} --- \textit{``architectural patterns in dart and flutter projects''}), o BM25 obteve precisão zero, trazendo artigos de saúde contendo o termo ``architectural'' isolado. Já o KNN obteve sucesso ao recuperar no rank 2 o artigo ID \texttt{1610.05711} (sobre anti-padrões e qualidade em Android). Mesmo sem conter o termo literal ``architectural patterns'', o modelo semântico associou o conceito com ``anti-patterns'' e ``code smells'', superando a incompatibilidade de vocabulário da busca léxica.
 
 \section{Conexões com a Disciplina de IA}
 
-Os experimentos realizados ilustram de forma prática conceitos teóricos fundamentais estudados na disciplina de Inteligência Artificial:
+Os experimentos realizados ilustram de forma prática conceitos teóricos fundamentais estudados na disciplina:
 
-\subsection{Modelo Probabilístico de IR e Naïve Bayes}
-A formulação de relevância do BM25 mapeia-se diretamente ao modelo probabilístico Naïve Bayes aplicado a texto. Ambos os paradigmas assumem a hipótese de independência de termos no documento (saco de palavras). O cálculo do score final de relevância corresponde à soma de probabilidades condicionais independentes de cada palavra-chave dada a classe (relevante/não-relevante), ponderada pela frequência e pelo comprimento do documento, refletindo a modelagem de probabilidades conjuntas e a regra de Bayes sob hipótese de independência.
+\noindent\textbf{Modelo Probabilístico de IR e Naïve Bayes:} A formulação de relevância do BM25 mapeia-se diretamente ao modelo probabilístico Naïve Bayes aplicado a texto. Ambos os paradigmas assumem a hipótese de independência de termos no documento (saco de palavras), modelando a relevância como a soma de probabilidades condicionais independentes de cada palavra-chave dada a classe (relevante/não-relevante).
 
-\subsection{Espaço Vetorial, Distâncias e o Algoritmo KNN}
-A busca densa reflete o algoritmo clássico de busca por vizinhos mais próximos ($K$-Nearest Neighbors). Em vez de usar os vizinhos para classificar um rótulo discreto através de voto majoritário, o retriever utiliza a ordenação de vizinhos mais próximos no espaço euclidiano multidimensional (384 dimensões) com base na similaridade de cosseno (produto interno normalizado). Isso valida a utilidade prática do modelo de espaço vetorial estudado para tarefas de recomendação e recuperação rápida através de cálculo de distâncias.
+\noindent\textbf{Espaço Vetorial, Distâncias e o Algoritmo KNN:} A busca densa reflete o algoritmo clássico de busca por vizinhos mais próximos ($K$-Nearest Neighbors) aplicado a tarefas de recomendação. Em vez de usar os vizinhos para classificação discreta via votação majoritária, o retriever ordena os vizinhos mais próximos no espaço vetorial multidimensional (384 dimensões) com base na similaridade de cosseno.
 
-\subsection{Redes Neurais e Aprendizado de Representações}
-A geração dos embeddings de sentenças baseia-se na rede neural convolucional profunda SentenceTransformer, construída sobre camadas de atenção bidirecionais (Transformer). O treinamento desta rede neural foi feito via aprendizado contrastivo (\textit{Contrastive Learning}), em que o algoritmo ajusta seus pesos internos através de retropropagação de erro (\textit{backpropagation}) para minimizar a distância entre sentenças semanticamente equivalentes e maximizar a distância entre sentenças dissemelhantes, demonstrando o poder de redes convolucionais e aprendizado profundo para gerar representações compactas e úteis.
+\noindent\textbf{Redes Neurais e Aprendizado de Representações:} A geração dos embeddings baseia-se na rede neural SentenceTransformer (arquitetura Transformer). O treinamento desta rede foi feito via aprendizado contrastivo, no qual o modelo ajusta seus pesos internos através de retropropagação de erro (\textit{backpropagation}) para aproximar sentenças semanticamente equivalentes e afastar dissemelhantes.
 
 \section{Declaração de Uso de IA Generativa}
 
-Em conformidade com as boas práticas científicas e as diretrizes da disciplina, declara-se que ferramentas de IA generativa (especificamente o modelo Claude 3.5 Sonnet) foram utilizadas de forma assistida para fins de formatação de tabelas em sintaxe LaTeX, estruturação modular inicial de scripts Python e revisão ortográfica. Todas as decisões de modelagem, hiperparâmetros de busca, análise conceitual de resultados, anotações de relevância no arquivo \texttt{qrels.tsv} e validação de equações foram conduzidas de forma independente, revisadas e aprovadas pelo autor do trabalho.
+Declara-se o uso assistido do assistente inteligente Antigravity (Google DeepMind) exclusivamente para apoio na formatação de tabelas LaTeX, revisão gramatical do artigo e sugestão de trechos do script Flask. Toda a análise conceitual, anotações de relevância e decisões de projeto foram de autoria intelectual do próprio autor.
 
 \section{Conclusão e Trabalhos Futuros}
 
@@ -351,9 +267,10 @@ O desenvolvimento do componente ``R'' do sistema RAG móvel cross-platform permi
 
 Os resultados demonstram que a indexação híbrida baseada em fusão recíproca (RRF) estabelece um meio termo ideal para a construção do RAG, obtendo o maior recall (R@10 = 0.5685) e precisão de topo estável. Como trabalhos futuros, recomenda-se investigar técnicas de ajuste fino (\textit{fine-tuning}) do codificador SentenceTransformers utilizando a própria base de artigos científicos coletados para calibrar ainda mais o espaço vetorial e mitigar os ruídos de falsos positivos conceituais.
 
-O vídeo demonstrando o uso prático, a execução dos notebooks e o funcionamento do sistema híbrido de busca está disponível online no YouTube\footnote{Link de acesso ao vídeo explicativo de 8 minutos: \url{https://www.youtube.com/watch?v=dQw4w9WgXcQ} (URL fictícia de exemplo, favor substituir pelo link final da gravação)}.
+O vídeo demonstrando o uso prático, a execução dos notebooks e o funcionamento do sistema híbrido de busca está disponível online no YouTube\footnote{Link de acesso ao vídeo explicativo: \url{https://youtu.be/WXqr7ucUfEw}}.
 
 \begin{thebibliography}{99}
+\small
 \bibitem{bird} Bird, S., Klein, E., and Loper, E. (2009). \textit{Natural Language Processing with Python: Analyzing Text with the Natural Language Toolkit}. O'Reilly Media.
 
 \bibitem{specter} Cohan, A., Feldman, S., Beltagy, I., McKinnell, A., Lockard, T., and Lo, K. (2020). SPECTER: Document-level Representation Learning using Citation-informed Transformers. \textit{Proceedings of the 58th Annual Meeting of the Association for Computational Linguistics (ACL)}, 2270--2282.
